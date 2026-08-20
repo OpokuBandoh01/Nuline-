@@ -441,7 +441,7 @@ export default function AdminPage() {
                   onChange={(e) => { setEmail(e.target.value); setAuthError('') }}
                   placeholder="admin@example.com"
                   required
-                  className="w-full rounded-xl border border-memo-line bg-memo-ink/80 px-4 py-3 text-sm text-memo-cream outline-none placeholder:text-memo-muted/30 focus:border-memo-gold"
+                  className="w-full rounded-xl border border-memo-line bg-memo-blue/30 px-4 py-3 text-sm text-foreground outline-none placeholder:text-memo-muted/40 focus:border-memo-gold"
                 />
               </label>
               <label className="block">
@@ -452,7 +452,7 @@ export default function AdminPage() {
                   onChange={(e) => { setPassword(e.target.value); setAuthError('') }}
                   placeholder="••••••••"
                   required
-                  className="w-full rounded-xl border border-memo-line bg-memo-ink/80 px-4 py-3 text-sm text-memo-cream outline-none placeholder:text-memo-muted/30 focus:border-memo-gold"
+                  className="w-full rounded-xl border border-memo-line bg-memo-blue/30 px-4 py-3 text-sm text-foreground outline-none placeholder:text-memo-muted/40 focus:border-memo-gold"
                 />
               </label>
             </div>
@@ -468,7 +468,7 @@ export default function AdminPage() {
                   value={passcode} 
                   onChange={(e) => { setPasscode(e.target.value); setAuthError('') }}
                   placeholder="Enter passcode (admin123)"
-                  className="w-full rounded-xl border border-memo-line bg-memo-ink/80 px-4 py-3 text-sm text-memo-cream outline-none placeholder:text-memo-muted/30 focus:border-memo-gold"
+                  className="w-full rounded-xl border border-memo-line bg-memo-blue/30 px-4 py-3 text-sm text-foreground outline-none placeholder:text-memo-muted/40 focus:border-memo-gold"
                   autoFocus
                 />
               </label>
@@ -621,7 +621,7 @@ export default function AdminPage() {
                           onChange={(e) => setNewPasswordUpdate(e.target.value)}
                           placeholder="Enter new password"
                           required
-                          className="flex-1 rounded-xl border border-memo-line bg-memo-ink/60 px-3 py-2 text-xs text-memo-cream outline-none focus:border-memo-gold placeholder:text-memo-muted/30"
+                          className="flex-1 rounded-xl border border-memo-line bg-memo-blue/30 px-3 py-2 text-xs text-foreground outline-none focus:border-memo-gold placeholder:text-memo-muted/40"
                         />
                         <button
                           type="submit"
@@ -707,7 +707,7 @@ export default function AdminPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search by client, email, or order ID..."
-                  className="w-full rounded-lg border border-memo-line/45 bg-memo-ink/65 pl-9 pr-4 py-2 text-sm text-memo-cream outline-none focus:border-memo-gold"
+                  className="w-full rounded-lg border border-memo-line/45 bg-memo-blue/30 pl-9 pr-4 py-2 text-sm text-foreground outline-none focus:border-memo-gold placeholder:text-memo-muted/40"
                 />
               </div>
               <div className="flex flex-wrap gap-2">
@@ -717,7 +717,7 @@ export default function AdminPage() {
                   <select 
                     value={categoryFilter}
                     onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="rounded bg-memo-ink border border-memo-line px-2 py-1 text-xs text-memo-cream"
+                    className="rounded bg-memo-blue/30 border border-memo-line px-2 py-1 text-xs text-foreground"
                   >
                     <option value="All">All Categories</option>
                     <option value="Birthday">Birthday</option>
@@ -734,7 +734,7 @@ export default function AdminPage() {
                   <select 
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="rounded bg-memo-ink border border-memo-line px-2 py-1 text-xs text-memo-cream"
+                    className="rounded bg-memo-blue/30 border border-memo-line px-2 py-1 text-xs text-foreground"
                   >
                     <option value="All">All Statuses</option>
                     <option value="submitted">Submitted</option>
@@ -834,7 +834,7 @@ export default function AdminPage() {
                   <h3 className="font-serif text-xl">Brief Detail</h3>
                   <button 
                     onClick={() => { setSelectedBrief(null); setActiveTab('briefs') }}
-                    className="text-xs text-memo-muted hover:text-memo-cream cursor-pointer"
+                    className="text-xs text-memo-muted hover:text-foreground cursor-pointer"
                   >
                     Close Brief
                   </button>
@@ -975,7 +975,7 @@ export default function AdminPage() {
                                     type="text" 
                                     defaultValue={pageDraft.title}
                                     id={`title-${pageNum}`}
-                                    className="w-full rounded bg-memo-ink border border-memo-line px-3 py-1.5 text-sm text-memo-cream"
+                                    className="w-full rounded bg-memo-blue/30 border border-memo-line px-3 py-1.5 text-sm text-foreground"
                                     placeholder="Enter page title"
                                   />
                                 </label>
@@ -985,7 +985,7 @@ export default function AdminPage() {
                                     type="text" 
                                     defaultValue={pageDraft.subtitle}
                                     id={`subtitle-${pageNum}`}
-                                    className="w-full rounded bg-memo-ink border border-memo-line px-3 py-1.5 text-sm text-memo-cream"
+                                    className="w-full rounded bg-memo-blue/30 border border-memo-line px-3 py-1.5 text-sm text-foreground"
                                     placeholder="Enter page sub-headline"
                                   />
                                 </label>
@@ -995,7 +995,7 @@ export default function AdminPage() {
                                     defaultValue={pageDraft.text}
                                     id={`text-${pageNum}`}
                                     rows={4}
-                                    className="w-full rounded bg-memo-ink border border-memo-line px-3 py-1.5 text-sm text-memo-cream resize-none"
+                                    className="w-full rounded bg-memo-blue/30 border border-memo-line px-3 py-1.5 text-sm text-foreground resize-none"
                                     placeholder="Write editorial content..."
                                   />
                                 </label>
@@ -1050,7 +1050,7 @@ export default function AdminPage() {
                               <select
                                 value={pageImageName}
                                 onChange={(e) => handlePageImageChange(pageNum, e.target.value)}
-                                className="rounded bg-memo-ink border border-memo-line px-2 py-1 text-xs text-memo-cream max-w-xs outline-none cursor-pointer"
+                                className="rounded bg-memo-blue/30 border border-memo-line px-2 py-1 text-xs text-foreground max-w-xs outline-none cursor-pointer"
                               >
                                 <option value="">No image / designer's layout fallback</option>
                                 {selectedBrief.images?.map((img, idx) => (
@@ -1281,7 +1281,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
       className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-all select-none cursor-pointer ${
         active 
           ? 'bg-memo-gold text-memo-ink' 
-          : 'text-memo-muted hover:text-memo-cream hover:bg-memo-panel/30'
+          : 'text-memo-muted hover:text-foreground hover:bg-memo-panel/30'
       }`}
     >
       {children}
