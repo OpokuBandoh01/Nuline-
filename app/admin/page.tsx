@@ -513,33 +513,44 @@ export default function AdminPage() {
       <div className="pointer-events-none fixed inset-0 bg-memo-noise opacity-30 print:hidden" />
       
       {/* Header */}
-      <header className="relative z-10 mx-auto flex w-full max-w-7xl items-center justify-between border-b border-memo-line/40 px-6 py-5 sm:px-10 lg:px-14 print:hidden">
-        <div className="flex items-center gap-3">
-          <span className="flex size-10 items-center justify-center rounded-full border border-memo-gold/50 bg-memo-blue/50">
-            <Sparkles className="size-4 text-memo-gold" />
-          </span>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-serif text-xl italic tracking-wide text-memo-gold">Nuline Admin</span>
-              <span className="rounded bg-memo-blue px-2 py-0.5 text-[10px] uppercase font-mono tracking-wider text-memo-muted">
-                {isSupabaseActive ? 'Live DB' : 'Local Storage'}
-              </span>
+      <header className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-4 border-b border-memo-line/40 px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-10 lg:px-14 print:hidden">
+        <div className="flex items-center justify-between sm:justify-start w-full sm:w-auto">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-full border border-memo-gold/50 bg-memo-blue/50 shrink-0">
+              <Sparkles className="size-4 text-memo-gold" />
+            </span>
+            <div>
+              <span className="font-serif text-xl italic tracking-wide text-memo-gold block">Nuline Admin</span>
+              {adminDisplayName && (
+                <p className="text-[10px] text-memo-muted mt-0.5 font-mono">
+                  Hi, <span className="text-memo-gold font-semibold capitalize">{adminDisplayName}</span>
+                </p>
+              )}
             </div>
-            {adminDisplayName && (
-              <p className="text-[10px] text-memo-muted mt-0.5 font-mono">
-                Hi, <span className="text-memo-gold font-semibold capitalize">{adminDisplayName}</span>
-              </p>
-            )}
+          </div>
+
+          {/* Mobile view controls */}
+          <div className="flex items-center gap-3 sm:hidden">
+            <ThemeToggle />
+            <button 
+              onClick={handleSignOut}
+              className="flex size-9 items-center justify-center rounded-full border border-memo-line bg-memo-panel/40 text-memo-gold hover:text-memo-gold-light transition-all cursor-pointer"
+              title="Log Out"
+              aria-label="Log Out"
+            >
+              <LogOut className="size-4" />
+            </button>
           </div>
         </div>
 
-        <nav className="flex items-center gap-6">
+        {/* Desktop view controls */}
+        <nav className="hidden sm:flex items-center gap-6">
           <ThemeToggle />
           <button 
             onClick={handleSignOut}
-            className="text-xs uppercase tracking-widest text-memo-gold hover:text-memo-gold-light inline-flex items-center gap-1 hover:underline transition-colors cursor-pointer"
+            className="text-xs uppercase tracking-widest text-memo-gold hover:text-memo-gold-light inline-flex items-center gap-1.5 hover:underline transition-colors cursor-pointer"
           >
-            <LogOut className="size-3" /> Log Out
+            <LogOut className="size-3.5" /> Log Out
           </button>
         </nav>
       </header>
@@ -853,29 +864,29 @@ export default function AdminPage() {
                 </div>
                 
                 <div className="space-y-3 text-sm">
-                  <div className="flex justify-between">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2">
                     <span className="text-memo-muted">Client Name:</span>
-                    <span className="font-semibold">{selectedBrief.contact_name}</span>
+                    <span className="font-semibold text-left sm:text-right break-all">{selectedBrief.contact_name}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2">
                     <span className="text-memo-muted">Client Email:</span>
-                    <span className="font-mono text-xs">{selectedBrief.contact_email}</span>
+                    <span className="font-mono text-xs text-left sm:text-right break-all">{selectedBrief.contact_email}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2">
                     <span className="text-memo-muted">Category:</span>
-                    <span className="text-memo-gold">{selectedBrief.category}</span>
+                    <span className="text-memo-gold font-medium text-left sm:text-right">{selectedBrief.category}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2">
                     <span className="text-memo-muted">Format Size:</span>
-                    <span>{selectedBrief.format.size} Layout</span>
+                    <span className="text-left sm:text-right">{selectedBrief.format.size} Layout</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2">
                     <span className="text-memo-muted">Pages:</span>
-                    <span>{selectedBrief.format.pages} Pages</span>
+                    <span className="text-left sm:text-right">{selectedBrief.format.pages} Pages</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2">
                     <span className="text-memo-muted">Submission ID:</span>
-                    <span className="font-mono text-[10px] text-memo-muted truncate max-w-[150px]">{selectedBrief.id}</span>
+                    <span className="font-mono text-[10px] text-memo-muted truncate max-w-full text-left sm:text-right">{selectedBrief.id}</span>
                   </div>
                 </div>
 
@@ -886,7 +897,7 @@ export default function AdminPage() {
                     value={selectedBrief.status} 
                     disabled={statusUpdating}
                     onChange={(e) => handleStatusChange(selectedBrief, e.target.value as MagazineBrief['status'])}
-                    className="w-full rounded-lg border border-memo-line bg-memo-ink px-3 py-2 text-sm text-memo-gold outline-none cursor-pointer"
+                    className="w-full rounded-lg border border-memo-line bg-memo-blue/30 px-3 py-2 text-sm text-foreground outline-none cursor-pointer"
                   >
                     <option value="submitted">Submitted (In Review)</option>
                     <option value="drafting">Drafting Editorial Copy</option>
