@@ -58,6 +58,23 @@ export default function AdminPage() {
   const [showPasscode, setShowPasscode] = useState(false)
   const [showNewPasswordUpdate, setShowNewPasswordUpdate] = useState(false)
 
+  // Registration state and inputs
+  const [hasAdminAccounts, setHasAdminAccounts] = useState<boolean | null>(null)
+  const [regName, setRegName] = useState('')
+  const [regEmail, setRegEmail] = useState('')
+  const [regPassword, setRegPassword] = useState('')
+  const [regConfirmPassword, setRegConfirmPassword] = useState('')
+  const [regPasscode, setRegPasscode] = useState('')
+  const [regConfirmPasscode, setRegConfirmPasscode] = useState('')
+  const [regError, setRegError] = useState('')
+  const [isRegistering, setIsRegistering] = useState(false)
+  
+  // Registration eye visibility states
+  const [showRegPassword, setShowRegPassword] = useState(false)
+  const [showRegConfirmPassword, setShowRegConfirmPassword] = useState(false)
+  const [showRegPasscode, setShowRegPasscode] = useState(false)
+  const [showRegConfirmPasscode, setShowRegConfirmPasscode] = useState(false)
+
   // Data states
   const [newPasswordUpdate, setNewPasswordUpdate] = useState('')
   const [passwordUpdateMessage, setPasswordUpdateMessage] = useState('')
@@ -195,10 +212,42 @@ export default function AdminPage() {
     setBriefs(data)
   }
 
+  const checkAdminExistence = async (isSupActive: boolean) => {
+    if (isSupActive && supabase) {
+      try {
+        const { data, count, error } = await supabase
+          .from('admin_profiles')
+          .select('id', { count: 'exact', head: true })
+        
+        console.log('checkAdminExistence Query Result:', { data, count, error })
+        
+        if (error) {
+          console.error('Error checking admin profiles existence:', error)
+          // Table doesn't exist yet, default to false to show registration screen
+          setHasAdminAccounts(false)
+        } else {
+          setHasAdminAccounts((count ?? 0) > 0)
+        }
+      } catch (e) {
+        console.error('Unexpected error checking admin existence:', e)
+        setHasAdminAccounts(false)
+      }
+    } else {
+      // Sandbox fallback mode - check local storage passcode
+      if (typeof window !== 'undefined') {
+        const customPasscode = localStorage.getItem('nuline_sandbox_passcode')
+        setHasAdminAccounts(!!customPasscode)
+      }
+    }
+  }
+
   // Setup Auth state listener
   useEffect(() => {
     const active = briefStore.isSupabaseConfigured()
     setIsSupabaseActive(active)
+    
+    // Check if admin accounts exist in database or locally
+    checkAdminExistence(active)
     
     if (active && supabase) {
       // Get initial session
@@ -242,6 +291,77 @@ export default function AdminPage() {
     }
   }, [isUnlocked])
 
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setRegError('')
+    setIsRegistering(true)
+
+    if (isSupabaseActive && supabase) {
+      if (regPassword !== regConfirmPassword) {
+        setRegError('Passwords do not match.')
+        setIsRegistering(false)
+        return
+      }
+      if (regPassword.length < 6) {
+        setRegError('Password must be at least 6 characters.')
+        setIsRegistering(false)
+        return
+      }
+
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email: regEmail,
+          password: regPassword,
+          options: {
+            data: {
+              name: regName
+            }
+          }
+        })
+
+        if (error) {
+          setRegError(error.message)
+        } else if (data.user) {
+          // Manual fallback: insert row into admin_profiles in case the database trigger isn't set up yet
+          try {
+            await supabase.from('admin_profiles').insert({ id: data.user.id, email: data.user.email })
+          } catch (insertErr) {
+            console.warn('Manual profile sync skipped (trigger might have handled it):', insertErr)
+          }
+
+          setIsUnlocked(true)
+          setHasAdminAccounts(true)
+          loadBriefs()
+          setAdminDisplayName(regName || regEmail.split('@')[0] || 'Publisher')
+        }
+      } catch (err: any) {
+        setRegError(err.message || 'An unexpected registration error occurred.')
+      }
+    } else {
+      // Sandbox fallback mode - setting custom local passcode
+      if (regPasscode !== regConfirmPasscode) {
+        setRegError('Passcodes do not match.')
+        setIsRegistering(false)
+        return
+      }
+      if (!regPasscode) {
+        setRegError('Passcode cannot be empty.')
+        setIsRegistering(false)
+        return
+      }
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('nuline_sandbox_passcode', regPasscode)
+        sessionStorage.setItem('nuline_admin_unlocked', 'true')
+      }
+      setIsUnlocked(true)
+      setHasAdminAccounts(true)
+      setAdminDisplayName('Publisher Sandbox')
+      loadBriefs()
+    }
+    setIsRegistering(false)
+  }
+
   // Sync editor state when active brief changes
   useEffect(() => {
     if (selectedBrief) {
@@ -267,8 +387,10 @@ export default function AdminPage() {
         loadBriefs()
       }
     } else {
-      // Local storage passcode bypass
-      if (passcode === 'admin123' || passcode.toLowerCase() === 'bypass') {
+      // Local storage passcode check against custom passcode, fallback to admin123
+      const customPasscode = typeof window !== 'undefined' ? localStorage.getItem('nuline_sandbox_passcode') : null
+      const expectedPasscode = customPasscode || 'admin123'
+      if (passcode === expectedPasscode || passcode.toLowerCase() === 'bypass') {
         setIsUnlocked(true)
         setAdminDisplayName('Publisher Sandbox')
         if (typeof window !== 'undefined') {
@@ -276,7 +398,7 @@ export default function AdminPage() {
         }
         loadBriefs()
       } else {
-        setAuthError('Invalid passcode. Use "admin123" to unlock.')
+        setAuthError(customPasscode ? 'Invalid passcode.' : 'Invalid passcode. Use "admin123" to unlock.')
       }
     }
     setIsLoading(false)
@@ -530,6 +652,184 @@ export default function AdminPage() {
   const draftingCount = briefs.filter(b => b.status === 'drafting').length
   const reviewingCount = briefs.filter(b => b.status === 'reviewing').length
   const approvedCount = briefs.filter(b => b.status === 'approved' || b.status === 'printed').length
+
+  console.log('Admin Render States:', { isUnlocked, hasAdminAccounts, isSupabaseActive })
+
+  if (hasAdminAccounts === null && isSupabaseActive) {
+    return (
+      <main className="min-h-screen bg-background flex items-center justify-center px-6 text-foreground transition-colors duration-300">
+        <div className="text-center font-mono text-xs uppercase tracking-widest text-memo-muted animate-pulse">
+          Initializing Workspace...
+        </div>
+      </main>
+    )
+  }
+
+  if (isLoggingOut) {
+    return (
+      <main className="min-h-screen bg-background flex items-center justify-center px-6 text-foreground transition-colors duration-300">
+        <div className="text-center">
+          <p className="text-sm text-memo-muted animate-pulse font-mono uppercase tracking-widest">Exiting Workspace...</p>
+        </div>
+      </main>
+    )
+  }
+
+  if (!isUnlocked && hasAdminAccounts === false) {
+    return (
+      <main className="min-h-screen bg-background flex items-center justify-center px-6 relative overflow-hidden text-foreground transition-colors duration-300">
+        <div className="pointer-events-none fixed inset-0 bg-memo-noise opacity-30" />
+        <div className="absolute size-96 rounded-full bg-memo-gold/5 blur-[120px] -top-20 -left-20" />
+        <div className="absolute size-96 rounded-full bg-memo-blue/10 blur-[150px] -bottom-20 -right-20" />
+        
+        <form onSubmit={handleRegister} className="relative z-10 w-full max-w-md rounded-2xl border border-memo-line bg-memo-panel p-8 backdrop-blur-md">
+          <div className="text-center mb-8">
+            <span className="inline-flex size-14 items-center justify-center rounded-full border border-memo-gold/30 bg-memo-blue/80 mb-4">
+              <Sparkles className="size-6 text-memo-gold" />
+            </span>
+            <h1 className="font-serif text-3xl text-foreground">Create Admin Account</h1>
+            <p className="mt-2 text-sm text-memo-muted">
+              {isSupabaseActive ? 'Register the main workspace owner' : 'Create a custom sandbox passcode'}
+            </p>
+          </div>
+
+          {isSupabaseActive ? (
+            <div className="space-y-4 mb-6">
+              <label className="block">
+                <span className="block text-xs uppercase tracking-widest text-memo-muted mb-2">Display Name</span>
+                <input 
+                  type="text" 
+                  value={regName} 
+                  onChange={(e) => { setRegName(e.target.value); setRegError('') }}
+                  placeholder="e.g. Elena Rostova"
+                  required
+                  className="w-full rounded-xl border border-memo-line bg-memo-blue/30 px-4 py-3 text-sm text-foreground outline-none placeholder:text-memo-muted/40 focus:border-memo-gold"
+                />
+              </label>
+              <label className="block">
+                <span className="block text-xs uppercase tracking-widest text-memo-muted mb-2">Email Address</span>
+                <input 
+                  type="email" 
+                  value={regEmail} 
+                  onChange={(e) => { setRegEmail(e.target.value); setRegError('') }}
+                  placeholder="admin@example.com"
+                  required
+                  className="w-full rounded-xl border border-memo-line bg-memo-blue/30 px-4 py-3 text-sm text-foreground outline-none placeholder:text-memo-muted/40 focus:border-memo-gold"
+                />
+              </label>
+              <label className="block">
+                <span className="block text-xs uppercase tracking-widest text-memo-muted mb-2">Password</span>
+                <div className="relative">
+                  <input 
+                    type={showRegPassword ? 'text' : 'password'} 
+                    value={regPassword} 
+                    onChange={(e) => { setRegPassword(e.target.value); setRegError('') }}
+                    placeholder="••••••••"
+                    required
+                    className="w-full rounded-xl border border-memo-line bg-memo-blue/30 pl-4 pr-10 py-3 text-sm text-foreground outline-none placeholder:text-memo-muted/40 focus:border-memo-gold"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowRegPassword(!showRegPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-memo-muted hover:text-foreground cursor-pointer focus:outline-none flex items-center justify-center"
+                    aria-label={showRegPassword ? "Hide password" : "Show password"}
+                  >
+                    {showRegPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
+              </label>
+              <label className="block">
+                <span className="block text-xs uppercase tracking-widest text-memo-muted mb-2">Confirm Password</span>
+                <div className="relative">
+                  <input 
+                    type={showRegConfirmPassword ? 'text' : 'password'} 
+                    value={regConfirmPassword} 
+                    onChange={(e) => { setRegConfirmPassword(e.target.value); setRegError('') }}
+                    placeholder="••••••••"
+                    required
+                    className="w-full rounded-xl border border-memo-line bg-memo-blue/30 pl-4 pr-10 py-3 text-sm text-foreground outline-none placeholder:text-memo-muted/40 focus:border-memo-gold"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowRegConfirmPassword(!showRegConfirmPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-memo-muted hover:text-foreground cursor-pointer focus:outline-none flex items-center justify-center"
+                    aria-label={showRegConfirmPassword ? "Hide password" : "Show password"}
+                  >
+                    {showRegConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
+              </label>
+            </div>
+          ) : (
+            <div className="space-y-4 mb-6">
+              <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-500/90 leading-relaxed">
+                Supabase keys not configured. Running in Local Storage sandbox mode. Create a custom passcode.
+              </div>
+              <label className="block">
+                <span className="block text-xs uppercase tracking-widest text-memo-muted mb-2">Choose Passcode</span>
+                <div className="relative">
+                  <input 
+                    type={showRegPasscode ? 'text' : 'password'} 
+                    value={regPasscode} 
+                    onChange={(e) => { setRegPasscode(e.target.value); setRegError('') }}
+                    placeholder="Enter custom passcode"
+                    required
+                    className="w-full rounded-xl border border-memo-line bg-memo-blue/30 pl-4 pr-10 py-3 text-sm text-foreground outline-none placeholder:text-memo-muted/40 focus:border-memo-gold"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowRegPasscode(!showRegPasscode)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-memo-muted hover:text-foreground cursor-pointer focus:outline-none flex items-center justify-center"
+                    aria-label={showRegPasscode ? "Hide passcode" : "Show passcode"}
+                  >
+                    {showRegPasscode ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
+              </label>
+              <label className="block">
+                <span className="block text-xs uppercase tracking-widest text-memo-muted mb-2">Confirm Passcode</span>
+                <div className="relative">
+                  <input 
+                    type={showRegConfirmPasscode ? 'text' : 'password'} 
+                    value={regConfirmPasscode} 
+                    onChange={(e) => { setRegConfirmPasscode(e.target.value); setRegError('') }}
+                    placeholder="Confirm custom passcode"
+                    required
+                    className="w-full rounded-xl border border-memo-line bg-memo-blue/30 pl-4 pr-10 py-3 text-sm text-foreground outline-none placeholder:text-memo-muted/40 focus:border-memo-gold"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowRegConfirmPasscode(!showRegConfirmPasscode)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-memo-muted hover:text-foreground cursor-pointer focus:outline-none flex items-center justify-center"
+                    aria-label={showRegConfirmPasscode ? "Hide passcode" : "Show passcode"}
+                  >
+                    {showRegConfirmPasscode ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
+              </label>
+            </div>
+          )}
+
+          {regError && (
+            <p className="text-xs text-memo-gold mb-6 text-center">{regError}</p>
+          )}
+
+          <div className="flex flex-col gap-3">
+            <button 
+              type="submit" 
+              disabled={isRegistering}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-memo-gold px-6 py-3 text-sm font-semibold text-memo-ink hover:bg-memo-gold-light disabled:opacity-60 transition-all cursor-pointer"
+            >
+              {isRegistering ? 'Creating Account...' : 'Create Account'}
+            </button>
+            <Link href="/" className="w-full inline-flex items-center justify-center gap-2 rounded-full border border-memo-line hover:border-memo-gold/60 px-6 py-3 text-sm text-foreground transition-all">
+              <ArrowLeft className="size-4" /> Client intake Form
+            </Link>
+          </div>
+        </form>
+      </main>
+    )
+  }
 
   if (isLoggingOut) {
     return (
