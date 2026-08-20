@@ -31,6 +31,7 @@ import {
   RefreshCw,
   FileText,
   Eye,
+  EyeOff,
   Sliders,
   Check,
   ArrowUpRight,
@@ -52,6 +53,11 @@ export default function AdminPage() {
   const [authError, setAuthError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
+  // Password visibility states
+  const [showPassword, setShowPassword] = useState(false)
+  const [showPasscode, setShowPasscode] = useState(false)
+  const [showNewPasswordUpdate, setShowNewPasswordUpdate] = useState(false)
+
   // Data states
   const [newPasswordUpdate, setNewPasswordUpdate] = useState('')
   const [passwordUpdateMessage, setPasswordUpdateMessage] = useState('')
@@ -72,6 +78,116 @@ export default function AdminPage() {
   const [pageImages, setPageImages] = useState<Record<number, string>>({})
   const [statusUpdating, setStatusUpdating] = useState(false)
   const [aiGenerating, setAiGenerating] = useState(false)
+
+  // Synchronize admin view state with URL parameters
+  useEffect(() => {
+    if (!isUnlocked) return
+
+    const handlePopState = () => {
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search)
+        const urlTab = urlParams.get('tab') as typeof activeTab || 'dashboard'
+        const urlBriefId = urlParams.get('briefId')
+
+        if (urlTab !== activeTab) {
+          setActiveTab(urlTab)
+        }
+
+        if (urlBriefId) {
+          if (!selectedBrief || selectedBrief.id !== urlBriefId) {
+            const brief = briefs.find(b => b.id === urlBriefId)
+            if (brief) {
+              setSelectedBrief(brief)
+            }
+          }
+        } else {
+          if (selectedBrief) {
+            setSelectedBrief(null)
+          }
+        }
+      }
+    }
+
+    window.addEventListener('popstate', handlePopState)
+
+    // Initial sync
+    const urlParams = new URLSearchParams(window.location.search)
+    const urlTab = urlParams.get('tab') as typeof activeTab
+    const urlBriefId = urlParams.get('briefId')
+
+    if (urlTab && urlTab !== activeTab) {
+      setActiveTab(urlTab)
+    }
+    if (urlBriefId && briefs.length > 0) {
+      const brief = briefs.find(b => b.id === urlBriefId)
+      if (brief && (!selectedBrief || selectedBrief.id !== urlBriefId)) {
+        setSelectedBrief(brief)
+      }
+    }
+
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [isUnlocked, briefs, activeTab, selectedBrief])
+
+  const changeTab = (tab: typeof activeTab) => {
+    setActiveTab(tab)
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.searchParams.set('tab', tab)
+      window.history.pushState({ tab, briefId: selectedBrief?.id || null }, '', url.toString())
+    }
+  }
+
+  const selectBrief = (brief: MagazineBrief | null, newTab?: typeof activeTab) => {
+    const nextTab = newTab || activeTab
+    setSelectedBrief(brief)
+    if (newTab) {
+      setActiveTab(nextTab)
+    }
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.searchParams.set('tab', nextTab)
+      if (brief) {
+        url.searchParams.set('briefId', brief.id)
+      } else {
+        url.searchParams.delete('briefId')
+      }
+      window.history.pushState({ tab: nextTab, briefId: brief?.id || null }, '', url.toString())
+    }
+  }
+
+  // Helper to download a single image by fetching it as a Blob
+  const downloadImage = async (url: string, filename: string) => {
+    try {
+      const response = await fetch(url)
+      const blob = await response.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(blobUrl)
+    } catch (err) {
+      console.error('Blob download failed, falling back to opening in a new tab:', err)
+      window.open(url, '_blank')
+    }
+  }
+
+  // Download all images for the selected brief
+  const downloadAllImages = async () => {
+    if (!selectedBrief || !selectedBrief.images || selectedBrief.images.length === 0) return
+    
+    // Download them sequentially to avoid overwhelming the browser
+    for (let i = 0; i < selectedBrief.images.length; i++) {
+      const img = selectedBrief.images[i]
+      const ext = img.name.split('.').pop() || 'jpg'
+      const filename = `${selectedBrief.contact_name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_image_${i + 1}.${ext}`
+      await downloadImage(img.url, filename)
+      // Add a tiny delay
+      await new Promise(resolve => setTimeout(resolve, 300))
+    }
+  }
 
   // Load briefs
   const loadBriefs = async () => {
@@ -458,14 +574,24 @@ export default function AdminPage() {
               </label>
               <label className="block">
                 <span className="block text-xs uppercase tracking-widest text-memo-muted mb-2">Password</span>
-                <input 
-                  type="password" 
-                  value={password} 
-                  onChange={(e) => { setPassword(e.target.value); setAuthError('') }}
-                  placeholder="••••••••"
-                  required
-                  className="w-full rounded-xl border border-memo-line bg-memo-blue/30 px-4 py-3 text-sm text-foreground outline-none placeholder:text-memo-muted/40 focus:border-memo-gold"
-                />
+                <div className="relative">
+                  <input 
+                    type={showPassword ? 'text' : 'password'} 
+                    value={password} 
+                    onChange={(e) => { setPassword(e.target.value); setAuthError('') }}
+                    placeholder="••••••••"
+                    required
+                    className="w-full rounded-xl border border-memo-line bg-memo-blue/30 pl-4 pr-10 py-3 text-sm text-foreground outline-none placeholder:text-memo-muted/40 focus:border-memo-gold"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-memo-muted hover:text-foreground cursor-pointer focus:outline-none flex items-center justify-center"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
               </label>
             </div>
           ) : (
@@ -475,14 +601,24 @@ export default function AdminPage() {
               </div>
               <label className="block">
                 <span className="block text-xs uppercase tracking-widest text-memo-muted mb-2">Passcode</span>
-                <input 
-                  type="password" 
-                  value={passcode} 
-                  onChange={(e) => { setPasscode(e.target.value); setAuthError('') }}
-                  placeholder="Enter passcode (admin123)"
-                  className="w-full rounded-xl border border-memo-line bg-memo-blue/30 px-4 py-3 text-sm text-foreground outline-none placeholder:text-memo-muted/40 focus:border-memo-gold"
-                  autoFocus
-                />
+                <div className="relative">
+                  <input 
+                    type={showPasscode ? 'text' : 'password'} 
+                    value={passcode} 
+                    onChange={(e) => { setPasscode(e.target.value); setAuthError('') }}
+                    placeholder="Enter passcode (admin123)"
+                    className="w-full rounded-xl border border-memo-line bg-memo-blue/30 pl-4 pr-10 py-3 text-sm text-foreground outline-none placeholder:text-memo-muted/40 focus:border-memo-gold"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasscode(!showPasscode)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-memo-muted hover:text-foreground cursor-pointer focus:outline-none flex items-center justify-center"
+                    aria-label={showPasscode ? "Hide passcode" : "Show passcode"}
+                  >
+                    {showPasscode ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
               </label>
             </div>
           )}
@@ -561,19 +697,19 @@ export default function AdminPage() {
         {/* Navigation Tabs (Hidden during print) */}
         <div className="flex items-center justify-between border-b border-memo-line/30 pb-4 mb-8 overflow-x-auto print:hidden gap-4">
           <div className="flex items-center gap-2 md:gap-4 shrink-0">
-            <TabButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')}>
+            <TabButton active={activeTab === 'dashboard'} onClick={() => changeTab('dashboard')}>
               <Layers className="size-4" /> Overview
             </TabButton>
-            <TabButton active={activeTab === 'briefs'} onClick={() => setActiveTab('briefs')}>
+            <TabButton active={activeTab === 'briefs'} onClick={() => changeTab('briefs')}>
               <Briefcase className="size-4" /> Client Briefs ({totalCount})
             </TabButton>
             {selectedBrief && (
               <>
                 <span className="text-memo-line font-light">|</span>
-                <TabButton active={activeTab === 'creative'} onClick={() => setActiveTab('creative')}>
+                <TabButton active={activeTab === 'creative'} onClick={() => changeTab('creative')}>
                   <Edit3 className="size-4" /> Creative Canvas
                 </TabButton>
-                <TabButton active={activeTab === 'preview'} onClick={() => setActiveTab('preview')}>
+                <TabButton active={activeTab === 'preview'} onClick={() => changeTab('preview')}>
                   <BookOpen className="size-4" /> Print Proof
                 </TabButton>
               </>
@@ -637,19 +773,29 @@ export default function AdminPage() {
                   {isSupabaseActive && (
                     <form onSubmit={handleUpdatePassword} className="space-y-3 pt-6 border-t border-memo-line/30">
                       <span className="block text-xs uppercase tracking-widest text-memo-muted">Update Admin Password</span>
-                      <div className="flex gap-2">
-                        <input
-                          type="password"
-                          value={newPasswordUpdate}
-                          onChange={(e) => setNewPasswordUpdate(e.target.value)}
-                          placeholder="Enter new password"
-                          required
-                          className="flex-1 rounded-xl border border-memo-line bg-memo-blue/30 px-3 py-2 text-xs text-foreground outline-none focus:border-memo-gold placeholder:text-memo-muted/40"
-                        />
+                      <div className="flex gap-2 relative items-center w-full">
+                        <div className="relative flex-1">
+                          <input
+                            type={showNewPasswordUpdate ? 'text' : 'password'}
+                            value={newPasswordUpdate}
+                            onChange={(e) => setNewPasswordUpdate(e.target.value)}
+                            placeholder="Enter new password"
+                            required
+                            className="w-full rounded-xl border border-memo-line bg-memo-blue/30 pl-3 pr-8 py-2 text-xs text-foreground outline-none focus:border-memo-gold placeholder:text-memo-muted/40"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPasswordUpdate(!showNewPasswordUpdate)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-memo-muted hover:text-foreground cursor-pointer focus:outline-none flex items-center justify-center"
+                            aria-label={showNewPasswordUpdate ? "Hide password" : "Show password"}
+                          >
+                            {showNewPasswordUpdate ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                          </button>
+                        </div>
                         <button
                           type="submit"
                           disabled={isUpdatingPassword}
-                          className="rounded-xl bg-memo-gold px-4 py-2 text-xs font-semibold text-memo-ink hover:bg-memo-gold-light disabled:opacity-60 transition-all cursor-pointer"
+                          className="rounded-xl bg-memo-gold px-4 py-2 text-xs font-semibold text-memo-ink hover:bg-memo-gold-light disabled:opacity-60 transition-all cursor-pointer shrink-0"
                         >
                           Update
                         </button>
@@ -662,7 +808,7 @@ export default function AdminPage() {
                 </div>
                 <div className="mt-8 space-y-3">
                   <button 
-                    onClick={() => setActiveTab('briefs')} 
+                    onClick={() => changeTab('briefs')} 
                     className="w-full flex items-center justify-between rounded-xl bg-memo-blue border border-memo-line/40 p-4 hover:border-memo-gold/60 text-sm transition-all cursor-pointer"
                   >
                     <span>Inspect Client Briefs</span>
@@ -684,7 +830,7 @@ export default function AdminPage() {
             <div className="rounded-2xl border border-memo-line bg-memo-panel p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="font-serif text-2xl">Recent Project Arrivals</h2>
-                <button onClick={() => setActiveTab('briefs')} className="text-xs text-memo-gold flex items-center gap-1 hover:underline cursor-pointer">
+                <button onClick={() => changeTab('briefs')} className="text-xs text-memo-gold flex items-center gap-1 hover:underline cursor-pointer">
                   View all <ChevronRight className="size-3.5" />
                 </button>
               </div>
@@ -704,7 +850,7 @@ export default function AdminPage() {
                     <div className="flex items-center gap-3">
                       <StatusBadge status={brief.status} />
                       <button 
-                        onClick={() => { setSelectedBrief(brief); setActiveTab('creative') }} 
+                        onClick={() => selectBrief(brief, 'creative')} 
                         className="rounded-lg bg-memo-blue px-3 py-1.5 text-xs text-memo-gold hover:bg-memo-blue/80 cursor-pointer"
                       >
                         Inspect
@@ -819,7 +965,7 @@ export default function AdminPage() {
                           <td className="px-6 py-4 text-right">
                             <div className="inline-flex gap-2">
                               <button 
-                                onClick={() => { setSelectedBrief(brief); setActiveTab('creative') }} 
+                                onClick={() => selectBrief(brief, 'creative')} 
                                 className="inline-flex size-8 items-center justify-center rounded-lg bg-memo-blue text-memo-gold hover:bg-memo-blue/80 cursor-pointer"
                                 title="Open Canvas Editor"
                               >
@@ -856,7 +1002,7 @@ export default function AdminPage() {
                 <div className="flex items-center justify-between mb-4 pb-4 border-b border-memo-line/20">
                   <h3 className="font-serif text-xl">Brief Detail</h3>
                   <button 
-                    onClick={() => { setSelectedBrief(null); setActiveTab('briefs') }}
+                    onClick={() => selectBrief(null, 'briefs')}
                     className="text-xs text-memo-muted hover:text-foreground cursor-pointer"
                   >
                     Close Brief
@@ -929,15 +1075,33 @@ export default function AdminPage() {
 
               {/* Uploaded Gallery */}
               <div className="rounded-xl border border-memo-line bg-memo-panel p-5">
-                <h3 className="font-serif text-xl mb-4 pb-4 border-b border-memo-line/20">Client Uploads ({selectedBrief.images?.length || 0})</h3>
+                <div className="flex items-center justify-between mb-4 pb-4 border-b border-memo-line/20">
+                  <h3 className="font-serif text-xl">Client Uploads ({selectedBrief.images?.length || 0})</h3>
+                  {selectedBrief.images && selectedBrief.images.length > 0 && (
+                    <button 
+                      onClick={downloadAllImages}
+                      className="text-xs text-memo-gold hover:underline inline-flex items-center gap-1 cursor-pointer"
+                      title="Download all images sequentially"
+                    >
+                      <Download className="size-3" /> Download All
+                    </button>
+                  )}
+                </div>
                 <div className="grid grid-cols-4 gap-2">
                   {selectedBrief.images?.map((img, idx) => (
                     <div key={idx} className="group relative aspect-square rounded-lg border border-memo-line/40 overflow-hidden bg-memo-ink">
                       <img src={img.url} alt={img.name} className="size-full object-cover group-hover:scale-105 transition-transform" />
-                      <div className="absolute inset-0 bg-memo-ink/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                      <div className="absolute inset-0 bg-memo-ink/75 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1.5 transition-opacity p-2">
                         <span className="text-[10px] font-mono text-memo-gold bg-memo-ink px-1 py-0.5 rounded truncate max-w-[80%]">
-                          {idx + 1}
+                          Image {idx + 1}
                         </span>
+                        <button
+                          onClick={() => downloadImage(img.url, img.name)}
+                          className="rounded-full bg-memo-gold hover:bg-memo-gold-light text-memo-ink p-1.5 shadow-md cursor-pointer transition-colors flex items-center justify-center"
+                          title={`Download ${img.name}`}
+                        >
+                          <Download className="size-3.5" />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -1102,7 +1266,7 @@ export default function AdminPage() {
               {/* View final proof button */}
               <div className="flex justify-end pt-4">
                 <button 
-                  onClick={() => setActiveTab('preview')}
+                  onClick={() => changeTab('preview')}
                   className="inline-flex items-center gap-2 rounded-full bg-memo-gold px-6 py-3 text-sm font-semibold text-memo-ink hover:bg-memo-gold-light transition-all cursor-pointer"
                 >
                   <BookOpen className="size-4" /> Open Digital Proof Spread

@@ -1,6 +1,6 @@
 'use client'
 
-import { ChangeEvent, DragEvent, useMemo, useRef, useState } from 'react'
+import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { briefStore } from '@/lib/brief-store'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
@@ -137,11 +137,63 @@ export function MagazineIntake() {
   const visiblePages = category?.pages.slice(0, pageCount) ?? []
   const progress = step === 'category' ? 1 : step === 'format' ? 2 : step === 'questions' ? 3 : step === 'images' ? 4 : step === 'details' ? 5 : step === 'review' ? 6 : 0
 
-  const goBack = () => { setError(''); if (step === 'category') setStep('welcome'); else if (step === 'format') setStep('category'); else if (step === 'questions') setStep('format'); else if (step === 'images') setStep('questions'); else if (step === 'details') setStep('images'); else if (step === 'review') setStep('details') }
-  const chooseCategory = (id: CategoryId) => { setCategoryId(id); setAnswers({}); setPageNotes({}); setPageImages({}); setError(''); setStep('format') }
+  // Synchronize wizard step with URL query parameter
+  useEffect(() => {
+    const handlePopState = () => {
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search)
+        let urlStep = urlParams.get('step') as Step || 'welcome'
+        
+        // Safety fallback if states are lost (e.g. on manual navigation or refresh)
+        if (urlStep !== 'welcome' && urlStep !== 'category' && !categoryId) {
+          urlStep = 'welcome'
+        }
+        
+        setStep(urlStep)
+      }
+    }
+    window.addEventListener('popstate', handlePopState)
+    
+    // Initial sync
+    const urlParams = new URLSearchParams(window.location.search)
+    let urlStep = urlParams.get('step') as Step
+    if (urlStep) {
+      if (urlStep !== 'welcome' && urlStep !== 'category' && !categoryId) {
+        urlStep = 'welcome'
+      }
+      if (urlStep !== step) {
+        setStep(urlStep)
+      }
+    }
+    
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [categoryId])
+
+  const changeStep = (newStep: Step, replace = false) => {
+    setError('')
+    setStep(newStep)
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.searchParams.set('step', newStep)
+      if (replace) {
+        window.history.replaceState({ step: newStep }, '', url.toString())
+      } else {
+        window.history.pushState({ step: newStep }, '', url.toString())
+      }
+    }
+  }
+
+  const goBack = () => {
+    setError('')
+    if (typeof window !== 'undefined') {
+      window.history.back()
+    }
+  }
+
+  const chooseCategory = (id: CategoryId) => { setCategoryId(id); setAnswers({}); setPageNotes({}); setPageImages({}); setError(''); changeStep('format') }
   const updateAnswer = (id: string, value: string) => setAnswers((current) => ({ ...current, [id]: value }))
-  const chooseFormat = () => { if (!format.size || !format.pages) { setError('Choose a paper size and page count to continue.'); return }; setError(''); setStep('questions') }
-  const continueQuestions = () => { if (!category || category.questions.some((question) => !answers[question.id]?.trim())) { setError('Please answer each question so we can shape the magazine around your story.'); return }; setError(''); setStep('images') }
+  const chooseFormat = () => { if (!format.size || !format.pages) { setError('Choose a paper size and page count to continue.'); return }; setError(''); changeStep('questions') }
+  const continueQuestions = () => { if (!category || category.questions.some((question) => !answers[question.id]?.trim())) { setError('Please answer each question so we can shape the magazine around your story.'); return }; setError(''); changeStep('images') }
   const addFiles = (files: FileList | File[]) => { const next = Array.from(files); if (!next.length) return; if (images.length + next.length > maxImages) { setError(`You can add up to ${maxImages} images.`); return }; const valid = next.filter((file) => file.type.startsWith('image/') && file.size <= maxImageSize); if (valid.length !== next.length) { setError('Please choose image files smaller than 10 MB each.'); return }; setImages((current) => [...current, ...valid.map((file) => ({ id: `${file.name}-${file.lastModified}-${Math.random()}`, file, url: URL.createObjectURL(file) }))]); setError('') }
   const onDrop = (event: DragEvent<HTMLDivElement>) => { event.preventDefault(); addFiles(event.dataTransfer.files) }
   const onFileChange = (event: ChangeEvent<HTMLInputElement>) => { if (event.target.files) addFiles(event.target.files); event.target.value = '' }
@@ -217,7 +269,7 @@ export function MagazineIntake() {
       }).catch((err) => console.error('Failed to notify admin via email:', err))
 
       setIsSubmitting(false)
-      setStep('success')
+      changeStep('success', true)
     } catch (submissionError) {
       if (isSupabase && uploadedPaths.length && supabase) {
         await supabase.storage.from('magazine-images').remove(uploadedPaths)
@@ -227,10 +279,25 @@ export function MagazineIntake() {
       setIsSubmitting(false)
     }
   }
-  const restart = () => { setStep('welcome'); setCategoryId(null); setAnswers({}); setFormat({ size: '', pages: '' }); setPageNotes({}); setPageImages({}); setDetails({ name: '', email: '', notes: '' }); setImages([]); setError('') }
+  const restart = () => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('step')
+      window.history.pushState({ step: 'welcome' }, '', url.toString())
+    }
+    setStep('welcome')
+    setCategoryId(null)
+    setAnswers({})
+    setFormat({ size: '', pages: '' })
+    setPageNotes({})
+    setPageImages({})
+    setDetails({ name: '', email: '', notes: '' })
+    setImages([])
+    setError('')
+  }
   if (step === 'success') return <SuccessScreen onRestart={restart} />
 
-  return <main className="min-h-screen overflow-hidden bg-background text-foreground transition-colors duration-300"><div className="pointer-events-none fixed inset-0 bg-memo-noise opacity-30" /><header className="relative z-10 mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-6 sm:px-10 lg:px-14"><button className="flex items-center gap-3" aria-label="Nuline magazine home" onClick={restart}><span className="flex size-10 items-center justify-center rounded-full border border-memo-gold/50 bg-memo-blue/50"><Sparkles className="size-4 text-memo-gold" /></span><span className="font-serif text-xl italic tracking-wide text-memo-gold">Nuline magazine</span></button><div className="flex items-center gap-6 text-xs uppercase tracking-[0.2em] text-memo-muted"><span className="hidden sm:block">Your story, beautifully told</span><ThemeToggle /></div></header>{step !== 'welcome' && <ProgressBar progress={progress} onBack={goBack} total={6} />}<div className="relative z-10 mx-auto flex min-h-[calc(100vh-96px)] w-full max-w-7xl flex-col px-6 pb-12 sm:px-10 lg:px-14">{step === 'welcome' && <WelcomeScreen onStart={() => setStep('category')} />}{step === 'category' && <CategoryScreen onChoose={chooseCategory} />}{step === 'format' && category && <FormatScreen category={category} format={format} setFormat={setFormat} onContinue={chooseFormat} error={error} />}{step === 'questions' && category && <QuestionScreen category={category} answers={answers} onChange={updateAnswer} onContinue={continueQuestions} error={error} />}{step === 'images' && category && <ImagePlanScreen pages={visiblePages} images={images} pageNotes={pageNotes} pageImages={pageImages} setPageNotes={setPageNotes} setPageImages={setPageImages} onDrop={onDrop} onFileChange={onFileChange} fileInput={fileInput} removeImage={(id) => setImages((current) => current.filter((image) => image.id !== id))} onContinue={continueImages} error={error} />}{step === 'details' && <DetailsScreen details={details} setDetails={setDetails} images={images} onContinue={continueDetails} error={error} />}{step === 'review' && category && <ReviewScreen category={category} format={format} answers={answers} details={details} images={images} pageImages={pageImages} pageNotes={pageNotes} onEdit={setStep} onSubmit={submit} isSubmitting={isSubmitting} error={error} />}</div></main>
+  return <main className="min-h-screen overflow-hidden bg-background text-foreground transition-colors duration-300"><div className="pointer-events-none fixed inset-0 bg-memo-noise opacity-30" /><header className="relative z-10 mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-6 sm:px-10 lg:px-14"><button className="flex items-center gap-3" aria-label="Nuline magazine home" onClick={restart}><span className="flex size-10 items-center justify-center rounded-full border border-memo-gold/50 bg-memo-blue/50"><Sparkles className="size-4 text-memo-gold" /></span><span className="font-serif text-xl italic tracking-wide text-memo-gold">Nuline magazine</span></button><div className="flex items-center gap-6 text-xs uppercase tracking-[0.2em] text-memo-muted"><span className="hidden sm:block">Your story, beautifully told</span><ThemeToggle /></div></header>{step !== 'welcome' && <ProgressBar progress={progress} onBack={goBack} total={6} />}<div className="relative z-10 mx-auto flex min-h-[calc(100vh-96px)] w-full max-w-7xl flex-col px-6 pb-12 sm:px-10 lg:px-14">{step === 'welcome' && <WelcomeScreen onStart={() => changeStep('category')} />}{step === 'category' && <CategoryScreen onChoose={chooseCategory} />}{step === 'format' && category && <FormatScreen category={category} format={format} setFormat={setFormat} onContinue={chooseFormat} error={error} />}{step === 'questions' && category && <QuestionScreen category={category} answers={answers} onChange={updateAnswer} onContinue={continueQuestions} error={error} />}{step === 'images' && category && <ImagePlanScreen pages={visiblePages} images={images} pageNotes={pageNotes} pageImages={pageImages} setPageNotes={setPageNotes} setPageImages={setPageImages} onDrop={onDrop} onFileChange={onFileChange} fileInput={fileInput} removeImage={(id) => setImages((current) => current.filter((image) => image.id !== id))} onContinue={continueImages} error={error} />}{step === 'details' && <DetailsScreen details={details} setDetails={setDetails} images={images} onContinue={continueDetails} error={error} />}{step === 'review' && category && <ReviewScreen category={category} format={format} answers={answers} details={details} images={images} pageImages={pageImages} pageNotes={pageNotes} onEdit={changeStep} onSubmit={submit} isSubmitting={isSubmitting} error={error} />}</div></main>
 }
 
 function ProgressBar({ progress, onBack, total }: { progress: number; onBack: () => void; total: number }) { return <div className="relative z-10 mx-auto flex w-full max-w-7xl items-center gap-4 px-6 sm:px-10 lg:px-14"><button onClick={onBack} className="flex items-center gap-2 text-sm text-memo-muted transition hover:text-foreground"><ArrowLeft className="size-4" /> Back</button><div className="h-px flex-1 bg-memo-line"><div className="h-full bg-memo-gold transition-all duration-500" style={{ width: `${progress / total * 100}%` }} /></div><span className="font-mono text-xs text-memo-muted">0{progress} / 0{total}</span></div> }
