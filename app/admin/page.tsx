@@ -177,6 +177,9 @@ export default function AdminPage() {
     setAdminDisplayName('')
     setSelectedBrief(null)
     setActiveTab('dashboard')
+    if (typeof window !== 'undefined') {
+      window.location.href = '/'
+    }
   }
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
@@ -422,7 +425,7 @@ export default function AdminPage() {
             <span className="inline-flex size-14 items-center justify-center rounded-full border border-memo-gold/30 bg-memo-blue/80 mb-4">
               <Lock className="size-6 text-memo-gold" />
             </span>
-            <h1 className="font-serif text-3xl text-memo-cream">Publisher Workspace</h1>
+            <h1 className="font-serif text-3xl text-foreground">Publisher Workspace</h1>
             <p className="mt-2 text-sm text-memo-muted">
               {isSupabaseActive ? 'Sign in using Supabase Auth Credentials' : 'Local Sandbox Offline Gate'}
             </p>
@@ -484,7 +487,7 @@ export default function AdminPage() {
             >
               {isLoading ? 'Authenticating...' : 'Unlock Workspace'}
             </button>
-            <Link href="/" className="w-full inline-flex items-center justify-center gap-2 rounded-full border border-memo-line hover:border-memo-gold/60 px-6 py-3 text-sm text-memo-cream transition-all">
+            <Link href="/" className="w-full inline-flex items-center justify-center gap-2 rounded-full border border-memo-line hover:border-memo-gold/60 px-6 py-3 text-sm text-foreground transition-all">
               <ArrowLeft className="size-4" /> Client intake Form
             </Link>
           </div>
@@ -666,7 +669,7 @@ export default function AdminPage() {
                 {briefs.slice(0, 5).map(brief => (
                   <div key={brief.id} className="py-4 first:pt-0 last:pb-0 flex items-center justify-between gap-4">
                     <div>
-                      <h4 className="font-serif text-lg text-memo-cream">{brief.contact_name}</h4>
+                      <h4 className="font-serif text-lg text-foreground">{brief.contact_name}</h4>
                       <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-memo-muted">
                         <span>{brief.category}</span>
                         <span>·</span>
@@ -778,9 +781,9 @@ export default function AdminPage() {
                               {brief.category}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-memo-cream">
-                            {brief.format.size} / {brief.format.pages} pgs
-                          </td>
+                          <td className="px-6 py-4 text-foreground">
+                             {brief.format.size} / {brief.format.pages} pgs
+                           </td>
                           <td className="px-6 py-4 font-mono text-xs text-memo-muted">
                             {brief.images?.length || 0} image{brief.images?.length === 1 ? '' : 's'}
                           </td>
@@ -889,13 +892,13 @@ export default function AdminPage() {
                   {Object.entries(selectedBrief.answers).map(([key, value]) => (
                     <div key={key} className="text-sm">
                       <span className="block text-xs uppercase tracking-wider text-memo-muted font-mono">{key}</span>
-                      <p className="mt-1 text-memo-cream leading-relaxed whitespace-pre-wrap">{value}</p>
+                      <p className="mt-1 text-foreground leading-relaxed whitespace-pre-wrap">{value}</p>
                     </div>
                   ))}
                   {selectedBrief.additional_notes && (
                     <div className="text-sm">
                       <span className="block text-xs uppercase tracking-wider text-memo-muted font-mono">Special Notes</span>
-                      <p className="mt-1 text-memo-cream leading-relaxed whitespace-pre-wrap">{selectedBrief.additional_notes}</p>
+                      <p className="mt-1 text-foreground leading-relaxed whitespace-pre-wrap">{selectedBrief.additional_notes}</p>
                     </div>
                   )}
                 </div>
@@ -1019,7 +1022,7 @@ export default function AdminPage() {
                             ) : (
                               <div onClick={() => setEditingPage(pageNum)} className="cursor-pointer group/page select-none hover:bg-memo-ink/10 p-2 rounded-lg transition-colors">
                                 <div className="flex items-center gap-2">
-                                  <h4 className="font-serif text-xl text-memo-cream group-hover/page:text-memo-gold transition-colors font-semibold">
+                                  <h4 className="font-serif text-xl text-foreground group-hover/page:text-memo-gold transition-colors font-semibold">
                                     {pageDraft.title || <em className="text-memo-muted text-sm font-sans font-normal">No page headline written</em>}
                                   </h4>
                                   <Edit3 className="size-3 text-memo-muted opacity-0 group-hover/page:opacity-100 transition-opacity" />
@@ -1294,7 +1297,7 @@ function StatsCard({ title, value, description, icon: Icon, color }: { title: st
         <Icon className={`size-5 ${color}`} />
       </div>
       <div className="mt-4 flex items-baseline gap-2">
-        <span className="font-serif text-4xl font-semibold text-memo-cream">{value}</span>
+        <span className="font-serif text-4xl font-semibold text-foreground">{value}</span>
       </div>
       <p className="mt-2 text-xs text-memo-muted leading-relaxed">{description}</p>
     </div>
@@ -1306,7 +1309,7 @@ function CategoryBar({ label, count, total, color }: { label: string; count: num
   return (
     <div>
       <div className="flex justify-between text-xs font-mono mb-1">
-        <span className="text-memo-cream">{label}</span>
+        <span className="text-foreground">{label}</span>
         <span className="text-memo-muted">{count} orders ({Math.round(percentage)}%)</span>
       </div>
       <div className="h-2 rounded bg-memo-ink overflow-hidden border border-memo-line/30">
