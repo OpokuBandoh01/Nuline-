@@ -1,0 +1,100 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--font-inter);
+  --font-serif: var(--font-cormorant);
+  --font-mono: var(--font-space-mono);
+  --color-memo-ink: var(--memo-ink);
+  --color-memo-blue: var(--memo-blue);
+  --color-memo-panel: var(--memo-panel);
+  --color-memo-panel-hover: var(--memo-panel-hover);
+  --color-memo-cream: var(--memo-cream);
+  --color-memo-gold: var(--memo-gold);
+  --color-memo-gold-light: var(--memo-gold-light);
+  --color-memo-muted: var(--memo-muted);
+  --color-memo-line: var(--memo-line);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+:root {
+  --radius: 0.75rem;
+
+  /* --- Light Theme --- */
+  --memo-ink: #111a34;
+  --memo-blue: #e8ecf5;
+  --memo-panel: rgba(255, 255, 255, 0.72);
+  --memo-panel-hover: rgba(235, 241, 254, 0.88);
+  --memo-cream: #faf8f5;
+  --memo-gold: #b29457;
+  --memo-gold-light: #947a46;
+  --memo-muted: #64748b;
+  --memo-line: rgba(178, 148, 87, 0.2);
+  --memo-noise-color: rgba(17, 26, 52, 0.05);
+
+  --background: var(--memo-cream);
+  --foreground: var(--memo-ink);
+}
+
+html.dark {
+  /* --- Dark Theme (Original Colors) --- */
+  --memo-ink: #111a34;
+  --memo-blue: #1c2a4d;
+  --memo-panel: rgb(38 55 91 / 0.62);
+  --memo-panel-hover: rgb(53 72 112 / 0.78);
+  --memo-cream: #f7f4ed;
+  --memo-gold: #c6a96b;
+  --memo-gold-light: #e1c98e;
+  --memo-muted: #aeb9d0;
+  --memo-line: rgb(185 167 111 / 0.27);
+  --memo-noise-color: rgb(255 255 255 / 0.08);
+
+  --background: var(--memo-ink);
+  --foreground: var(--memo-cream);
+}
+
+* { box-sizing: border-box; }
+html { background: var(--background); transition: background-color 0.3s ease; }
+body { margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-inter), Arial, sans-serif; transition: background-color 0.3s ease, color 0.3s ease; }
+button, input, textarea { font: inherit; }
+button { cursor: pointer; }
+::selection { background: rgb(198 169 107 / 0.35); color: var(--memo-cream); }
+
+.bg-memo-noise {
+  background-image: radial-gradient(var(--memo-noise-color) 0.7px, transparent 0.7px);
+  background-size: 7px 7px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  main {
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .page-break-after {
+    page-break-after: always;
+    break-after: page;
+  }
+}
