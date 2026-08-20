@@ -43,6 +43,7 @@ export default function AdminPage() {
   const [adminDisplayName, setAdminDisplayName] = useState('')
   const [isUnlocked, setIsUnlocked] = useState(false)
   const [isSupabaseActive, setIsSupabaseActive] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   
   // Auth Inputs
   const [email, setEmail] = useState('')
@@ -166,6 +167,7 @@ export default function AdminPage() {
   }
 
   const handleSignOut = async () => {
+    setIsLoggingOut(true)
     if (isSupabaseActive && supabase) {
       await supabase.auth.signOut()
     } else {
@@ -412,6 +414,16 @@ export default function AdminPage() {
   const draftingCount = briefs.filter(b => b.status === 'drafting').length
   const reviewingCount = briefs.filter(b => b.status === 'reviewing').length
   const approvedCount = briefs.filter(b => b.status === 'approved' || b.status === 'printed').length
+
+  if (isLoggingOut) {
+    return (
+      <main className="min-h-screen bg-background flex items-center justify-center px-6 text-foreground transition-colors duration-300">
+        <div className="text-center">
+          <p className="text-sm text-memo-muted animate-pulse font-mono uppercase tracking-widest">Exiting Workspace...</p>
+        </div>
+      </main>
+    )
+  }
 
   if (!isUnlocked) {
     return (
