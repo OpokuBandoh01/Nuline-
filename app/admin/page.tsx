@@ -51,6 +51,7 @@ export default function AdminPage() {
   const [password, setPassword] = useState('')
   const [passcode, setPasscode] = useState('')
   const [authError, setAuthError] = useState('')
+  const [authNotice, setAuthNotice] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
   // Password visibility states
@@ -329,10 +330,21 @@ export default function AdminPage() {
             console.warn('Manual profile sync skipped (trigger might have handled it):', insertErr)
           }
 
-          setIsUnlocked(true)
           setHasAdminAccounts(true)
-          loadBriefs()
-          setAdminDisplayName(regName || regEmail.split('@')[0] || 'Publisher')
+
+          if (data.session) {
+            setIsUnlocked(true)
+            loadBriefs()
+            setAdminDisplayName(regName || regEmail.split('@')[0] || 'Publisher')
+          } else {
+            // Email confirmation is required
+            setAuthNotice('Account created! Please check your email inbox to confirm your registration before logging in.')
+            // Reset registration inputs
+            setRegName('')
+            setRegEmail('')
+            setRegPassword('')
+            setRegConfirmPassword('')
+          }
         }
       } catch (err: any) {
         setRegError(err.message || 'An unexpected registration error occurred.')
@@ -376,6 +388,7 @@ export default function AdminPage() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     setAuthError('')
+    setAuthNotice('')
     setIsLoading(true)
 
     if (isSupabaseActive && supabase) {
@@ -920,6 +933,12 @@ export default function AdminPage() {
                   </button>
                 </div>
               </label>
+            </div>
+          )}
+
+          {authNotice && (
+            <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-4 text-xs text-green-500 mb-6 text-center leading-relaxed font-mono">
+              {authNotice}
             </div>
           )}
 
