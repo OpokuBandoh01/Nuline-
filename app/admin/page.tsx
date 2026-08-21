@@ -39,6 +39,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { ThemeToggle } from '@/components/theme-toggle'
+import JSZip from 'jszip'
 
 export default function AdminPage() {
   const [adminDisplayName, setAdminDisplayName] = useState('')
@@ -69,6 +70,7 @@ export default function AdminPage() {
   const [regConfirmPasscode, setRegConfirmPasscode] = useState('')
   const [regError, setRegError] = useState('')
   const [isRegistering, setIsRegistering] = useState(false)
+  const [isZipping, setIsZipping] = useState(false)
   
   // Registration eye visibility states
   const [showRegPassword, setShowRegPassword] = useState(false)
@@ -173,37 +175,58 @@ export default function AdminPage() {
     }
   }
 
-  // Helper to download a single image by fetching it as a Blob
-  const downloadImage = async (url: string, filename: string) => {
+  // Helper to download a single image via server-side proxy
+  const downloadImage = (url: string, filename: string) => {
+    const downloadUrl = `/api/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`
+    const link = document.createElement('a')
+    link.href = downloadUrl
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  // Download all images for the selected brief as a single ZIP file
+  const downloadAllImages = async () => {
+    if (!selectedBrief || !selectedBrief.images || selectedBrief.images.length === 0) return
+    
+    setIsZipping(true)
     try {
-      const response = await fetch(url)
-      const blob = await response.blob()
-      const blobUrl = URL.createObjectURL(blob)
+      const zip = new JSZip()
+      
+      // Fetch each image as an ArrayBuffer and add it to the ZIP
+      for (let i = 0; i < selectedBrief.images.length; i++) {
+        const img = selectedBrief.images[i]
+        const ext = img.name.split('.').pop() || 'jpg'
+        const filename = `${selectedBrief.contact_name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_image_${i + 1}.${ext}`
+        
+        // Fetch through our server-side download API to bypass browser CORS block
+        const downloadUrl = `/api/download?url=${encodeURIComponent(img.url)}&filename=${encodeURIComponent(filename)}`
+        const response = await fetch(downloadUrl)
+        if (!response.ok) throw new Error(`Failed to fetch image: ${img.name}`)
+        
+        const arrayBuffer = await response.arrayBuffer()
+        zip.file(filename, arrayBuffer)
+      }
+      
+      // Generate the zip content
+      const content = await zip.generateAsync({ type: 'blob' })
+      const zipFilename = `${selectedBrief.contact_name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_images.zip`
+      
+      // Trigger a single download of the ZIP file
+      const blobUrl = URL.createObjectURL(content)
       const link = document.createElement('a')
       link.href = blobUrl
-      link.download = filename
+      link.download = zipFilename
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
       URL.revokeObjectURL(blobUrl)
     } catch (err) {
-      console.error('Blob download failed, falling back to opening in a new tab:', err)
-      window.open(url, '_blank')
-    }
-  }
-
-  // Download all images for the selected brief
-  const downloadAllImages = async () => {
-    if (!selectedBrief || !selectedBrief.images || selectedBrief.images.length === 0) return
-    
-    // Download them sequentially to avoid overwhelming the browser
-    for (let i = 0; i < selectedBrief.images.length; i++) {
-      const img = selectedBrief.images[i]
-      const ext = img.name.split('.').pop() || 'jpg'
-      const filename = `${selectedBrief.contact_name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_image_${i + 1}.${ext}`
-      await downloadImage(img.url, filename)
-      // Add a tiny delay
-      await new Promise(resolve => setTimeout(resolve, 300))
+      console.error('Zipping and download failed:', err)
+      alert('Failed to bundle and download images. Please try downloading them individually.')
+    } finally {
+      setIsZipping(false)
     }
   }
 
@@ -1399,10 +1422,19 @@ export default function AdminPage() {
                   {selectedBrief.images && selectedBrief.images.length > 0 && (
                     <button 
                       onClick={downloadAllImages}
-                      className="text-xs text-memo-gold hover:underline inline-flex items-center gap-1 cursor-pointer"
-                      title="Download all images sequentially"
+                      disabled={isZipping}
+                      className="text-xs text-memo-gold hover:underline inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                      title="Download all images as a ZIP file"
                     >
-                      <Download className="size-3" /> Download All
+                      {isZipping ? (
+                        <>
+                          <RefreshCw className="size-3 animate-spin" /> Preparing ZIP...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="size-3" /> Download All (.ZIP)
+                        </>
+                      )}
                     </button>
                   )}
                 </div>
@@ -1410,17 +1442,21 @@ export default function AdminPage() {
                   {selectedBrief.images?.map((img, idx) => (
                     <div key={idx} className="group relative aspect-square rounded-lg border border-memo-line/40 overflow-hidden bg-memo-ink">
                       <img src={img.url} alt={img.name} className="size-full object-cover group-hover:scale-105 transition-transform" />
-                      <div className="absolute inset-0 bg-memo-ink/75 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1.5 transition-opacity p-2">
-                        <span className="text-[10px] font-mono text-memo-gold bg-memo-ink px-1 py-0.5 rounded truncate max-w-[80%]">
-                          Image {idx + 1}
+                      
+                      {/* Always-visible single download overlay button for high visibility on all screens */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); downloadImage(img.url, img.name); }}
+                        className="absolute bottom-1.5 right-1.5 z-20 rounded-full bg-memo-ink/80 hover:bg-memo-gold text-memo-gold hover:text-memo-ink p-1.5 shadow-md cursor-pointer transition-all flex items-center justify-center border border-memo-line/30"
+                        title={`Download ${img.name}`}
+                      >
+                        <Download className="size-3" />
+                      </button>
+
+                      {/* Hover text label */}
+                      <div className="absolute inset-0 bg-memo-ink/40 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity flex items-start p-2">
+                        <span className="text-[9px] font-mono text-memo-gold bg-memo-ink/80 px-1 py-0.5 rounded truncate max-w-[85%]">
+                          {img.name}
                         </span>
-                        <button
-                          onClick={() => downloadImage(img.url, img.name)}
-                          className="rounded-full bg-memo-gold hover:bg-memo-gold-light text-memo-ink p-1.5 shadow-md cursor-pointer transition-colors flex items-center justify-center"
-                          title={`Download ${img.name}`}
-                        >
-                          <Download className="size-3.5" />
-                        </button>
                       </div>
                     </div>
                   ))}
